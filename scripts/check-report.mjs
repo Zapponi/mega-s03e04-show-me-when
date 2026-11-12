@@ -27,7 +27,10 @@ try { ev = blocks.length === 1 ? JSON.parse(blocks[0][1]) : null; } catch (e) { 
 check('evidence-block', ev !== null, `${blocks.length} evidence block(s), JSON ${ev ? 'parses' : 'does not parse'}`);
 if (!ev) { process.exitCode = 1; process.exit(); }
 const keys = Object.keys(ev).sort().join(',');
-check('evidence-keys', keys === 'at,flow,receipt,sha,videoLink', `keys ${keys}`);
+// The course asked (step-1 claim, 2026-11-12): "Name them in the evidence block as expected and got (incident ids)".
+check('evidence-keys', keys === 'at,expected,flow,got,receipt,sha,videoLink', `keys ${keys}`);
+check('expected-got', ev.expected === log.ack.intended && ev.got === log.ack.acked,
+  `expected ${ev.expected} (aimed: ${log.ack.intended}), got ${ev.got} (acked: ${log.ack.acked})`);
 check('flow', ['open-board', 'ack-incident', 'watch-board'].includes(ev.flow), `flow ${ev.flow}`);
 
 // `at` must be the second of the ack the receipt belongs to (±1 s), and the flow must be on screen then.
