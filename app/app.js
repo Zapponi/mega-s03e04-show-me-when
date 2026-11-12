@@ -1,19 +1,49 @@
 import { fetchIncidents } from './api.js';
 
+const board = document.querySelector('[data-testid="board"]');
 const list = document.querySelector('[data-testid="incident-list"]');
+const status = document.querySelector('.status');
 
-function render(incidents) {
-  list.innerHTML = incidents
+// Every incident the board has seen, by id. A page is merged in, never swapped in, so a page with
+// fewer incidents (a delta, or an empty poll) never empties a board that already holds rows.
+const incidents = new Map();
+let loaded = false;
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+
+function render() {
+  if (loaded) document.querySelector('[data-testid="loader"]')?.remove(); // gone for good once loaded
+
+  const rows = [...incidents.values()].sort((a, b) => b.openedAt.localeCompare(a.openedAt));
+  list.innerHTML = rows
     .map(
-      (i) => `<li data-testid="incident-row" data-id="${i.id}" class="row ${i.severity}">
-        <span class="id">${i.id}</span>
-        <span class="sev">${i.severity}</span>
-        <span class="what">${i.service} · ${i.region} · ${i.summary}</span>
-        <time datetime="${i.openedAt}">${i.openedAt}</time>
+      (i) => `<li data-testid="incident-row" data-id="${esc(i.id)}" class="row ${esc(i.severity)}">
+        <span class="id">${esc(i.id)}</span>
+        <span class="sev">${esc(i.severity)}</span>
+        <span class="what">${esc(i.service)} · ${esc(i.region)} · ${esc(i.summary)}</span>
+        <time datetime="${esc(i.openedAt)}">${esc(i.openedAt)}</time>
       </li>`,
     )
     .join('');
+
+  // `empty` exists only while a loaded board holds no incident at all.
+  const empty = board.querySelector('[data-testid="empty"]');
+  if (loaded && rows.length === 0 && !empty) list.insertAdjacentHTML('beforebegin', '<p data-testid="empty" class="empty">No incidents tonight.</p>');
+  if (rows.length > 0) empty?.remove();
 }
 
-const page = await fetchIncidents();
-render(page.incidents);
+function apply(page) {
+  for (const i of page.incidents) incidents.set(i.id, { ...incidents.get(i.id), ...i });
+  loaded = true;
+  status.textContent = '';
+  render();
+}
+
+/** Fetches one page and merges it into the board. The 2 s refresh (SCHED-4513) calls this. */
+export function refresh() {
+  return fetchIncidents().then(apply, (e) => {
+    status.textContent = `Could not load incidents: ${e.message}`;
+  });
+}
+
+refresh();
