@@ -84,9 +84,9 @@ Not needed: every run is watched in this thread; nothing runs on a schedule or e
 | "Deploy `app/` to your own public **https** address" | opens it logged out | `curl -I` + Playwright from this PC | 200, https, no login || match: curl 200 + Playwright fresh context, https://sched-prod-board.mega-s02e05-while-youre-away.workers.dev |
 | "A recording of the board in use, at a public https link… that serves the file itself" | downloads/plays the link | `curl -IL` logged out | 200 with video bytes, plays in a browser || match with a note: release asset 302 → 200, 2,580,908 bytes, identical to the local file; served as application/octet-stream (downloads, then plays as webm; README lists release assets as fine) |
 | Report sections + evidence block (README step 1) | parses the report | A8 script | exact headings; evidence JSON parses; receipt equals the logged one || match: scripts/check-report.mjs 9/9 (headings, evidence keys, flow, at, receipt, sha on origin/main, 4 Where refs at the sha, video bytes) |
-| "Change what product decided, deploy, record it again" (step 2) | compares with the decision | System Diff vs product's text | every point of the decision has a line; hooks touched listed | |
-| "`.github/workflows/prove.yml` as shipped" | checks the file at the run's commit | sha256 before the run | `bc0bbd32…27f7` | |
-| "`runUrl`" in step-2 evidence | opens the run | `gh run view` | run green, inputs url + nonce match | |
+| "Change what product decided, deploy, record it again" (step 2) | compares with the decision | System Diff vs product's text | every point of the decision has a line; hooks touched listed || match: product "Ack asks to confirm, and the confirm names the incident id" → confirm / confirm-ack / confirm-cancel built (PR #19); System Diff names behavior, UX, data, decision, hooks; check-report2 7/7; course accepted step 2 (solved 22:25 UTC) |
+| "`.github/workflows/prove.yml` as shipped" | checks the file at the run's commit | sha256 before the run | `bc0bbd32…27f7` || match: sha256 bc0bbd32…27f7 at 9a1e94f (check-report2 via the GitHub API; verifier) |
+| "`runUrl`" in step-2 evidence | opens the run | `gh run view` | run green, inputs url + nonce match || match after one fail: run 43315930460 on 8e37322 failed (check j, 40 rows removed); run 43317683236 on 9a1e94f success, unmet [], title = prove + the nonce + the board URL |
 
 ## Helpers
 
