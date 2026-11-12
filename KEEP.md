@@ -27,5 +27,8 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 - Chromium `setInterval(refresh, 2000)` with the fake answering in 200 ms gives `/incidents` request-start gaps of 1.990–2.012 s (median ~2.003 s) at the fake's arrival clock · source: ./verify --local A4 on branch 5-refresh at 42ad275, 2026-11-12 · how: ran
 - With full pages (the real API's shape) a board that replaces its list on every page instead of merging still passes A3; only the fake's delta mode catches it (A3 `delta pages` fails at board.spec.mjs:83) · source: mutation `incidents.clear()` in app.js apply(), ./verify A3 on branch 6-live-list-ack at 119742a, 2026-11-12 · how: ran
 - An acked mark written only into the DOM is gone after the next 2 s re-render (`innerHTML`); A5 fails at board.spec.mjs:137 · source: mutation in app.js ackIncident(), A5 on branch 6-live-list-ack at 119742a, 2026-11-12 · how: ran
+- Playwright 1.64.1 runs Chromium 156.0.8078.4; its A6 strings use plain U+0020 spaces (no U+202F before pm/PM), so an exact `textContent` compare works · source: scratchpad cp.mjs code-point probe 2026-11-12 · how: ran
+- A board hardcoding `'en-GB'` shows `12/11, 16:03` to an en-NZ/Auckland viewer; A6 fails at board.spec.mjs:209 (raw openedAt fails there too) · source: mutations in app.js, A6 on branch 7-local-times at 293256c, 2026-11-12 · how: ran
+- The en-NZ time text `12/11, 04:03 pm` is 107 px wide at 15 px system-ui; the 200 px time column fits it, a 60 px one fails A6 at :219 · source: mutation in style.css, A6 on branch 7-local-times at 293256c, 2026-11-12 · how: ran
 
 ## Receipts
