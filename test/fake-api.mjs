@@ -2,7 +2,8 @@
 // so the page under test never calls the course API. `/config.js` is replaced by one that points
 // api.js at this fake (app/api.js stays unchanged). No dependencies: node:http only.
 //
-//   const fake = await startFake({ incidents, delayMs, mode });  // mode: 'full' (the real API, KEEP) | 'delta'
+//   const fake = await startFake({ incidents, delayMs, mode, sorted });  // mode: 'full' (the real API, KEEP) | 'delta'
+//                            // sorted: false serves incidents in the given order, so a test proves the board sorts
 //   await page.goto(fake.url);
 //   fake.set({ delayMs, mode, failIncidents, failAck })  // change behaviour between polls
 //   fake.add(incident)       // inject a new incident (shows up on the next poll)
@@ -17,8 +18,8 @@ import { fileURLToPath } from 'node:url';
 const APP = fileURLToPath(new URL('../app/', import.meta.url));
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json' };
 
-export async function startFake({ incidents = [], delayMs = 0, mode = 'full' } = {}) {
-  const opts = { delayMs, mode, failIncidents: false, failAck: false };
+export async function startFake({ incidents = [], delayMs = 0, mode = 'full', sorted = true } = {}) {
+  const opts = { delayMs, mode, sorted, failIncidents: false, failAck: false };
   let seq = 0; // bumps on every add and every answered /incidents; the cursor is this number
   const store = incidents.map((i) => ({ ...i, seq: 0 }));
   const requests = [];
@@ -42,7 +43,7 @@ export async function startFake({ incidents = [], delayMs = 0, mode = 'full' } =
       const since = query.since === undefined ? null : Number(query.since);
       const page = opts.mode === 'delta' && since !== null ? store.filter((i) => i.seq > since) : store;
       seq += 1;
-      return json(res, 200, { updatedAt: new Date().toISOString(), incidents: newestFirst(page).map(strip), cursor: String(seq) });
+      return json(res, 200, { updatedAt: new Date().toISOString(), incidents: (opts.sorted ? newestFirst(page) : page).map(strip), cursor: String(seq) });
     }
     if (url.pathname === '/api/ack') {
       acks.push({ id: query.id, cursor: query.cursor, t: query.t });

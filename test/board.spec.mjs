@@ -24,7 +24,7 @@ const poll = (page) => page.evaluate(() => import('./app.js').then((m) => m.refr
 
 test('A2 open-board: loader until the first answer, then rows newest first; empty only when the board holds none', async ({ page }) => {
   await test.step('loader shows before a 1 s answer and is gone after it', async () => {
-    const f = await fake({ incidents: TONIGHT, delayMs: 1000 });
+    const f = await fake({ incidents: TONIGHT, delayMs: 1000, sorted: false }); // unsorted: the board must sort
     const answered = page.waitForResponse((r) => new URL(r.url()).pathname === '/api/incidents');
     await page.goto(f.url);
     await expect(hook(page, 'loader')).toBeVisible();
