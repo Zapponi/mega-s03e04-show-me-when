@@ -109,11 +109,24 @@ test('A5 ack: one /ack for the clicked row with the latest cursor; acked on that
   await page.goto(f.url);
   await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
 
-  await test.step('click Ack in row X: exactly one /ack with id=X and the cursor api.js holds', async () => {
+  // Step 2 (plan § 10): Ack opens a confirm naming the row's id; only confirm-ack sends the ack.
+  const confirmAck = async (id) => {
+    await row(id).locator('[data-testid="ack"]').click();
+    await expect(hook(page, 'confirm')).toContainText(id);
+    await hook(page, 'confirm-ack').click();
+    await expect(hook(page, 'confirm')).toHaveCount(0);
+  };
+
+  await test.step('Ack in row X opens a confirm naming X; nothing is sent until confirm-ack', async () => {
     // Click just after a poll was applied, so the next one is ~2 s away and api.js holds the latest cursor.
     await page.waitForResponse((r) => new URL(r.url()).pathname === '/api/incidents');
     await page.waitForTimeout(100);
     await row(X).locator('[data-testid="ack"]').click();
+    await expect(hook(page, 'confirm')).toBeVisible();
+    await expect(hook(page, 'confirm')).toContainText(X);
+    expect(f.acks).toHaveLength(0);
+    await hook(page, 'confirm-ack').click();
+    await expect(hook(page, 'confirm')).toHaveCount(0);
     await expect(row(X).locator('[data-testid="acked"]')).toBeVisible();
     expect(f.acks).toHaveLength(1);
     const [sent] = f.acks;
@@ -139,9 +152,32 @@ test('A5 ack: one /ack for the clicked row with the latest cursor; acked on that
     expect(f.acks.map((a) => a.id)).toEqual([X]); // still one ack, still the clicked row's id
   });
 
+  await test.step('confirm-cancel closes the confirm and sends nothing', async () => {
+    await row(Y).locator('[data-testid="ack"]').click();
+    await expect(hook(page, 'confirm')).toContainText(Y);
+    await hook(page, 'confirm-cancel').click();
+    await expect(hook(page, 'confirm')).toHaveCount(0);
+    await page.waitForTimeout(300);
+    expect(f.acks.map((a) => a.id)).toEqual([X]);
+    await expect(row(Y).locator('[data-testid="ack"]')).toBeVisible();
+  });
+
+  await test.step('a new row landing while the confirm is open does not change the id it acks', async () => {
+    const Z = 'INC-1003';
+    await row(Z).locator('[data-testid="ack"]').click();
+    await expect(hook(page, 'confirm')).toContainText(Z);
+    const before = (await rowIds(page))[0];
+    f.add({ id: 'INC-9001', service: 'search', region: 'eu', summary: 'lands while the confirm is open', severity: 'sev2', openedAt: at(59) });
+    await expect.poll(async () => (await rowIds(page))[0], { timeout: 5000 }).not.toBe(before); // the list moved underneath
+    await expect(hook(page, 'confirm')).toContainText(Z); // the confirm survived the redraw and still names Z
+    await hook(page, 'confirm-ack').click();
+    await expect(row(Z).locator('[data-testid="acked"]')).toBeVisible();
+    expect(f.acks.map((a) => a.id)).toEqual([X, Z]);
+  });
+
   await test.step('a forced 500 on /ack leaves row Y not acked and says so; the error stays across a refresh; a retry acks it', async () => {
     f.set({ failAck: true });
-    await row(Y).locator('[data-testid="ack"]').click();
+    await confirmAck(Y);
     await expect(row(Y).locator('.ack-error')).toContainText('Ack failed');
     expect(f.acks.at(-1).id).toBe(Y);
     await expect(row(Y).locator('[data-testid="acked"]')).toHaveCount(0);
@@ -150,13 +186,13 @@ test('A5 ack: one /ack for the clicked row with the latest cursor; acked on that
     await expect.poll(() => incidentCalls(f).length, { timeout: 3000 }).toBeGreaterThan(n);
     await page.waitForTimeout(100);
     await expect(row(Y).locator('.ack-error')).toBeVisible();
-    await expect(hook(page, 'acked')).toHaveCount(1);
+    await expect(hook(page, 'acked')).toHaveCount(2);
 
     f.set({ failAck: false });
-    await row(Y).locator('[data-testid="ack"]').click();
+    await confirmAck(Y);
     await expect(row(Y).locator('[data-testid="acked"]')).toBeVisible();
     await expect(row(Y).locator('.ack-error')).toHaveCount(0);
-    expect(f.acks.map((a) => a.id)).toEqual([X, Y, Y]);
+    expect(f.acks.map((a) => a.id)).toEqual(['INC-3002', 'INC-1003', Y, Y]);
   });
 });
 
@@ -243,7 +279,7 @@ test('A6 local times: each viewer sees openedAt in their own locale and zone, fu
   });
 });
 
-test('A7 hooks: all 8 pinned data-testid hooks exist with their meaning', async ({ page }) => {
+test('A7 hooks: the 8 pinned data-testid hooks plus step 2 confirm, confirm-ack, confirm-cancel exist with their meaning', async ({ page }) => {
   const f = await fake({ incidents: TONIGHT, delayMs: 500 });
   await page.goto(f.url);
   await expect(hook(page, 'loader')).toBeVisible();
@@ -257,7 +293,14 @@ test('A7 hooks: all 8 pinned data-testid hooks exist with their meaning', async 
   for (const r of await hook(page, 'incident-row').all()) await expect(r.locator('[data-testid="ack"]')).toHaveCount(1);
   await expect(hook(page, 'acked')).toHaveCount(0);
   const first = hook(page, 'incident-row').first();
+  const firstId = await first.getAttribute('data-id');
+  // confirm: shown only after an Ack click, naming that row's id, with confirm-ack and confirm-cancel inside.
+  await expect(hook(page, 'confirm')).toHaveCount(0);
   await first.locator('[data-testid="ack"]').click();
+  await expect(hook(page, 'confirm')).toContainText(firstId);
+  await expect(hook(page, 'confirm').locator('[data-testid="confirm-ack"]')).toBeVisible();
+  await expect(hook(page, 'confirm').locator('[data-testid="confirm-cancel"]')).toBeVisible();
+  await hook(page, 'confirm-ack').click();
   await expect(first.locator('[data-testid="acked"]')).toBeVisible();
   await expect(hook(page, 'acked')).toHaveCount(1);
 

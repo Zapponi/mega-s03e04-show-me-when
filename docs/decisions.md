@@ -35,3 +35,7 @@ flow-ok: bundle — the three megadev "ok"s were three separate answers (host, v
 2026-11-12 — Step-1 work merges into the integration branch `step-1` through one PR per issue (review mark + verifier each, the kit gate requires them); one /sol-loop on the whole step-1 before main — kit gate + AGENTS.md — who: agent (kit_gate)
 flow-ok: issues-late — same false positive (T3 checkpoint 8719dfe); issue table approved before any build ("Sim pode criar")
 flow-ok: heredoc — four heredocs wrote docs/decisions.md and scripts; file-write tool from now on (Giovanni told in chat)
+2026-11-12 — Send the step-1 claim (session, step 1, board URL, .challenge/step1/report.md, release videoLink) — report and video shown in chat — who: human ("Claum", answering "Responda vai para eu mandar o claim do passo 1")
+2026-11-12 — Step 2 = Ack asks to confirm, the confirm names the incident id; hooks confirm, confirm-ack, confirm-cancel — product's answer (resume-challenge ~21:42 UTC) — who: product ("New incidents stay live at the top and Ack stays on the row, but Ack asks to confirm, and the confirm names the incident id.")
+2026-11-12 — In-page confirm with the three hooks, not browser confirm(): confirm() blocks the page and stops polling; the course named the hooks first — who: agent (plan § 10)
+2026-11-12 — Publish issues #16–#18 (step-2 build, evidence, claim) and start step 2 with plan § 10 — table shown in chat — who: human ("Sim", answering "Responda sim para eu publicar as issues #16 a #18 e começar o passo 2 com esse plano")

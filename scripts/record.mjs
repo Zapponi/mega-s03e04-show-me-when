@@ -17,11 +17,12 @@ const args = process.argv.slice(2);
 const REAL = args.includes('--real');
 const FAKE = args.includes('--fake');
 if (REAL === FAKE) throw new Error('record: pass exactly one of --fake (rehearsal) or --real (evidence)');
+const STEP2 = args.includes('--step2'); // plan § 10: the confirm names the id; cancel the wrong one, confirm the right one
 const LOCALE = 'en-NZ';
 const TZ = 'Pacific/Auckland';
 const root = new URL('..', import.meta.url);
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-const out = fileURLToPath(new URL(`recordings/${REAL ? 'real' : 'fake'}-${stamp}/`, root));
+const out = fileURLToPath(new URL(`recordings/${REAL ? 'real' : 'fake'}${STEP2 ? '-step2' : ''}-${stamp}/`, root));
 mkdirSync(out, { recursive: true });
 const mask = (s) => (s && s.length > 12 ? `${s.slice(0, 4)}…${s.slice(-4)}` : s);
 
@@ -118,14 +119,57 @@ try {
   top = await waitNewTop(ids[0]);
   log('ack-incident', `new incident ${top} lands on top; rows shift down under the pointer`, { id: top });
   await page.mouse.click(x, y); // same spot, no move
-  const clickedMs = Date.now() - t0;
+  let clickedMs = Date.now() - t0;
   log('ack-incident', 'click Ack at the same spot');
+  if (STEP2) {
+    // Step 2 (plan § 10): the confirm names the row that slid under the pointer; on-call reads it, cancels,
+    // then acks the row they meant through the confirm.
+    const confirm = page.locator('[data-testid="confirm"]');
+    await confirm.waitFor({ timeout: 5000 });
+    const named = await confirm.getAttribute('data-id');
+    log('ack-incident', `confirm opens and names ${named}, not ${intended}`, { id: named, intended });
+    await caption(`ack-incident · the confirm names ${named} — not ${intended}, the one I meant`);
+    await page.waitForTimeout(2500);
+    const cancel = await page.locator('[data-testid="confirm-cancel"]').boundingBox();
+    await page.mouse.move(cancel.x + cancel.width / 2, cancel.y + cancel.height / 2, { steps: 12 });
+    await page.mouse.click(cancel.x + cancel.width / 2, cancel.y + cancel.height / 2);
+    log('ack-incident', `confirm-cancel: nothing sent for ${named}`);
+    await caption(`ack-incident · cancelled; nothing sent for ${named}`);
+    await page.waitForTimeout(1500);
+    let named2 = null;
+    for (let tries = 0; tries < 3 && named2 !== intended; tries += 1) {
+      if (named2) { // another arrival moved the row under the pointer again: cancel and aim again
+        log('ack-incident', `confirm names ${named2} again (the list moved); confirm-cancel`, { id: named2 });
+        await page.locator('[data-testid="confirm-cancel"]').click();
+        await page.waitForTimeout(800);
+      }
+      const right = await page.locator(`[data-testid="incident-row"][data-id="${intended}"] [data-testid="ack"]`).boundingBox();
+      await page.mouse.move(right.x + right.width / 2, right.y + right.height / 2, { steps: 12 });
+      await page.mouse.click(right.x + right.width / 2, right.y + right.height / 2);
+      await confirm.waitFor({ timeout: 5000 });
+      named2 = await confirm.getAttribute('data-id');
+    }
+    if (named2 !== intended) throw new Error(`record: the confirm kept naming ${named2}, not ${intended}`);
+    log('ack-incident', `Ack on ${intended}; the confirm names ${named2}`, { id: named2 });
+    await caption(`ack-incident · the confirm names ${named2} — the one I meant`);
+    await page.waitForTimeout(2000);
+    const ok = await page.locator('[data-testid="confirm-ack"]').boundingBox();
+    await page.mouse.move(ok.x + ok.width / 2, ok.y + ok.height / 2, { steps: 12 });
+    await page.mouse.click(ok.x + ok.width / 2, ok.y + ok.height / 2);
+    clickedMs = Date.now() - t0;
+    log('ack-incident', `confirm-ack: ack sent for ${named2}`);
+  }
   await page.waitForFunction(() => document.querySelector('[data-testid="acked"]'), null, { timeout: 10_000 });
   const ackedId = await page.$eval('[data-testid="acked"]', (el) => el.closest('[data-testid="incident-row"]').dataset.id);
   const line = ackLogs.find((l) => l.ms >= clickedMs - 50) ?? ackLogs.at(-1);
   const [, sentId, ackedAt, receipt] = line?.text.split(' ') ?? [];
-  log('ack-incident', `row ${ackedId} shows Acked; ${intended} still has its Ack button`, { id: ackedId, intended });
-  await caption(`ack-incident · aimed at ${intended}, acked ${ackedId} — the row moved under the pointer`);
+  if (STEP2) {
+    log('ack-incident', `row ${ackedId} shows Acked, the one aimed at (${intended})`, { id: ackedId, intended });
+    await caption(`ack-incident · aimed at ${intended}, acked ${ackedId} — the confirm named it before the ack`);
+  } else {
+    log('ack-incident', `row ${ackedId} shows Acked; ${intended} still has its Ack button`, { id: ackedId, intended });
+    await caption(`ack-incident · aimed at ${intended}, acked ${ackedId} — the row moved under the pointer`);
+  }
   await page.waitForTimeout(6000);
   writeFileSync(`${out}log.json`, JSON.stringify({
     url, locale: LOCALE, timezoneId: TZ, sha, real: REAL, startedAt: new Date(t0).toISOString(), events,

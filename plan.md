@@ -100,3 +100,22 @@ until the answer is in; blocks § 9.
 Build product's decision (new plan section first), `/sol-loop`, deploy, re-record, prove run on Actions
 with the nonce (prove.yml unchanged). Step-2 report = `## System Diff` plus one evidence block
 `{sha, videoLink, runUrl}` only (README:62–67), checked by a script. Giovanni sees it → step-2 claim.
+
+## § 10 Step 2 — product's decision (2026-11-12): Ack asks to confirm, naming the incident id
+Product: "New incidents stay live at the top and Ack stays on the row, but Ack asks to confirm, and the
+confirm names the incident id." Hooks named by the course: `confirm` (the confirm, naming the incident
+id) · `confirm-ack` · `confirm-cancel` (or a browser confirm() whose text names the id).
+- Behaviour: clicking `ack` in row X opens an in-page confirm (`confirm`) whose text names X (captured
+  at click time). `confirm-ack` acks X through `api.ack(X)` — X, even if rows shift while the confirm is
+  open; `confirm-cancel` closes it and sends nothing. One confirm at a time. R1, R2 (mark), R4 unchanged:
+  the list stays live underneath. The confirm lives outside `incident-list`, so the 2 s redraw keeps it.
+- In-page rather than browser `confirm()`: `confirm()` blocks the page (polling stops while it is open);
+  the course named the hooks first.
+- Tests (lean): A5 now goes through the confirm (names the clicked id; confirm → exactly one `/ack` with
+  that id; cancel → none; a row landing while the confirm is open does not change the id); A7 adds the
+  three hooks.
+- Evidence: deploy, re-record (aim, the list shifts, click → the confirm names the shifted row's id →
+  cancel → Ack on the intended row → the confirm names it → confirm; one real ack), release asset,
+  `gh workflow run prove.yml` with url + nonce + replay, report = `## System Diff` + evidence
+  `{sha, videoLink, runUrl}`, then the step-2 claim after Giovanni sees report and run.
+Issues: #16 (build), #17 (evidence), #18 (claim).
