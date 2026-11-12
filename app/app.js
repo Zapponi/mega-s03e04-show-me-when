@@ -13,6 +13,8 @@ let loaded = false;
 // 2 s poll, new rows landing above) draws it again. `acked`: id → the ack reply; `ackErrors`: id → message.
 const acked = new Map();
 const ackErrors = new Map();
+const rowEls = new Map(); // id → its <li>, kept for the life of the page (see render)
+const rowHtml = new Map(); // id → the content last written into its <li>
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
@@ -35,18 +37,31 @@ function ackCell(id) {
 function render() {
   if (loaded) document.querySelector('[data-testid="loader"]')?.remove(); // gone for good once loaded
 
+  // Keyed update: each incident keeps its own row element for the life of the page. New rows are inserted
+  // in place (newest first); an existing row is never taken off the page, only its content is updated when
+  // it changed, so a row (and the Ack button under the pointer) is not torn down on every 2 s refresh.
   const rows = [...incidents.values()].sort((a, b) => b.openedAt.localeCompare(a.openedAt));
-  list.innerHTML = rows
-    .map(
-      (i) => `<li data-testid="incident-row" data-id="${esc(i.id)}" class="row ${esc(i.severity)}">
-        <span class="id">${esc(i.id)}</span>
+  rows.forEach((i, index) => {
+    let li = rowEls.get(i.id);
+    if (!li) {
+      li = document.createElement('li');
+      li.setAttribute('data-testid', 'incident-row');
+      li.dataset.id = i.id;
+      rowEls.set(i.id, li);
+    }
+    li.className = `row ${i.severity}`;
+    const html = `<span class="id">${esc(i.id)}</span>
         <span class="sev">${esc(i.severity)}</span>
         <span class="what">${esc(i.service)} · ${esc(i.region)} · ${esc(i.summary)}</span>
         <time datetime="${esc(i.openedAt)}">${esc(localTime(i.openedAt))}</time>
-        <span class="act">${ackCell(i.id)}</span>
-      </li>`,
-    )
-    .join('');
+        <span class="act">${ackCell(i.id)}</span>`;
+    if (rowHtml.get(i.id) !== html) {
+      li.innerHTML = html;
+      rowHtml.set(i.id, html);
+    }
+    const at = list.children[index];
+    if (at !== li) list.insertBefore(li, at ?? null);
+  });
 
   // `empty` exists only while a loaded board holds no incident at all.
   const empty = board.querySelector('[data-testid="empty"]');

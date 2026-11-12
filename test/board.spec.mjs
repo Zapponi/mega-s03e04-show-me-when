@@ -76,6 +76,17 @@ test('A3 live list: an incident added between two polls shows as the first row w
       await page.goto(f.url);
       await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
       await page.evaluate(() => { window.__a3marker = 'still here'; });
+      // Rows already on the board are never taken off it by a refresh (the course replay counts removed
+      // incident-row nodes while it watches; it must be 0).
+      await page.evaluate(() => {
+        window.__rowsRemoved = 0;
+        new MutationObserver((recs) => {
+          for (const r of recs) for (const n of r.removedNodes) {
+            if (n.nodeType !== 1) continue;
+            window.__rowsRemoved += n.matches('[data-testid="incident-row"]') ? 1 : n.querySelectorAll('[data-testid="incident-row"]').length;
+          }
+        }).observe(document, { childList: true, subtree: true });
+      });
 
       f.add(LATE);
       const before = incidentCalls(f).length;
@@ -92,6 +103,7 @@ test('A3 live list: an incident added between two polls shows as the first row w
       expect(new Set(ids).size).toBe(ids.length);
       expect(navigations).toBe(1);
       expect(await page.evaluate(() => window.__a3marker)).toBe('still here');
+      expect(await page.evaluate(() => window.__rowsRemoved)).toBe(0); // across ≥ 2 refreshes and one arrival
       page.off('framenavigated', onNav);
     });
   }
