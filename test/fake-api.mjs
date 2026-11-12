@@ -8,7 +8,8 @@
 //   fake.set({ delayMs, mode, failIncidents, failAck })  // change behaviour between polls
 //   fake.add(incident)       // inject a new incident (shows up on the next poll)
 //   fake.requests            // [{ path, query, start }] every /api request, start = Date.now() at arrival
-//   fake.acks                // [{ id, cursor, t }] every /api/ack call
+//   fake.acks                // [{ id, cursor, t, start }] every /api/ack call, start = arrival time
+//   fake.cursors             // [{ cursor, at }] every cursor an /incidents answer handed out, at = Date.now()
 //   await fake.close()
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -24,6 +25,7 @@ export async function startFake({ incidents = [], delayMs = 0, mode = 'full', so
   const store = incidents.map((i) => ({ ...i, seq: 0 }));
   const requests = [];
   const acks = [];
+  const cursors = [];
   let base = '';
 
   const json = (res, status, body) => {
@@ -43,10 +45,11 @@ export async function startFake({ incidents = [], delayMs = 0, mode = 'full', so
       const since = query.since === undefined ? null : Number(query.since);
       const page = opts.mode === 'delta' && since !== null ? store.filter((i) => i.seq > since) : store;
       seq += 1;
+      cursors.push({ cursor: String(seq), at: Date.now() });
       return json(res, 200, { updatedAt: new Date().toISOString(), incidents: (opts.sorted ? newestFirst(page) : page).map(strip), cursor: String(seq) });
     }
     if (url.pathname === '/api/ack') {
-      acks.push({ id: query.id, cursor: query.cursor, t: query.t });
+      acks.push({ id: query.id, cursor: query.cursor, t: query.t, start: requests.at(-1).start });
       if (opts.failAck) return json(res, 500, { error: 'fake: forced 500' });
       if (!store.some((i) => i.id === query.id)) return json(res, 404, { error: `fake: no incident ${query.id}` });
       return json(res, 200, { id: query.id, ackedAt: new Date().toISOString(), receipt: `fake-receipt-${acks.length}` });
@@ -81,6 +84,7 @@ export async function startFake({ incidents = [], delayMs = 0, mode = 'full', so
     url: `${base}/`,
     requests,
     acks,
+    cursors,
     set: (changes) => Object.assign(opts, changes),
     add: (incident) => store.push({ ...incident, seq: ++seq }),
     close: () => new Promise((r) => { server.closeAllConnections(); server.close(r); }),

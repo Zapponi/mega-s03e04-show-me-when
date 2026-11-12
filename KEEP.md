@@ -25,5 +25,7 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 - wrangler 4.149.0 via S03E03 scripts/wr.sh reaches only the personal Cloudflare account (OAuth) · source: sh scripts/wr.sh api whoami 2026-11-12 · how: ran
 - The `playwright` 1.64.1 package carries the test runner: `import { test, expect } from 'playwright/test'` and `npx playwright test` work without `@playwright/test` · source: ./verify --local on branch 4-test-bench-loader 2026-11-12 · how: ran
 - Chromium `setInterval(refresh, 2000)` with the fake answering in 200 ms gives `/incidents` request-start gaps of 1.990–2.012 s (median ~2.003 s) at the fake's arrival clock · source: ./verify --local A4 on branch 5-refresh at 42ad275, 2026-11-12 · how: ran
+- With full pages (the real API's shape) a board that replaces its list on every page instead of merging still passes A3; only the fake's delta mode catches it (A3 `delta pages` fails at board.spec.mjs:83) · source: mutation `incidents.clear()` in app.js apply(), ./verify A3 on branch 6-live-list-ack at 119742a, 2026-11-12 · how: ran
+- An acked mark written only into the DOM is gone after the next 2 s re-render (`innerHTML`); A5 fails at board.spec.mjs:137 · source: mutation in app.js ackIncident(), A5 on branch 6-live-list-ack at 119742a, 2026-11-12 · how: ran
 
 ## Receipts
