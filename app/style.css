@@ -7,7 +7,7 @@ h1 { margin: 0; font-size: 22px; }
 .row .id { font-family: ui-monospace, monospace; }
 .row.sev1 .sev { color: #b00020; font-weight: 600; }
 .row.sev2 .sev { color: #a15c00; }
-.row time { color: #555; font-variant-numeric: tabular-nums; }
+.row time { color: #555; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row .act { display: flex; align-items: center; gap: 8px; }
 .ack { font: inherit; padding: 4px 12px; border: 1px solid #1d1d1f; border-radius: 4px; background: #fff; cursor: pointer; }
 .acked { color: #1b7a34; font-weight: 600; }

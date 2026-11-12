@@ -16,6 +16,12 @@ const ackErrors = new Map();
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
+// SCHED-4514 R5: the time in the viewer's own locale and time zone (`undefined` = the browser's), so the
+// locale decides day/month order and its 12/24 h clock; no hand-built locale list. The <time datetime>
+// attribute keeps the raw UTC openedAt.
+const timeFormat = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const localTime = (iso) => timeFormat.format(new Date(iso));
+
 function ackCell(id) {
   if (acked.has(id)) return '<span data-testid="acked" class="acked">Acked</span>';
   const error = ackErrors.get(id);
@@ -32,7 +38,7 @@ function render() {
         <span class="id">${esc(i.id)}</span>
         <span class="sev">${esc(i.severity)}</span>
         <span class="what">${esc(i.service)} · ${esc(i.region)} · ${esc(i.summary)}</span>
-        <time datetime="${esc(i.openedAt)}">${esc(i.openedAt)}</time>
+        <time datetime="${esc(i.openedAt)}">${esc(localTime(i.openedAt))}</time>
         <span class="act">${ackCell(i.id)}</span>
       </li>`,
     )
