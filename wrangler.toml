@@ -1,0 +1,6 @@
+# The board as a static-assets-only Worker on the personal account (BRIEF "Outside services").
+name = "sched-prod-board"
+compatibility_date = "2026-11-01"
+
+[assets]
+directory = "./dist"

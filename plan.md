@@ -71,7 +71,8 @@ Below is how we build it. Proof checks A1–A10 live in `BRIEF.md`. Review: `doc
 poll on a non-empty board shows rows, not `empty`); loader never returns on refresh.
 
 ## § 4 SCHED-4511 live list + Ack (R1, R2) → A3, A5
-Keep incidents in a map by id; merge each page, delta or full (slice 1 tells which the real API sends);
+Keep incidents in a map by id; merge each page (the real API sends the full growing list — KEEP — the
+fake also serves a delta so the merge stays right either way);
 render newest first by `openedAt`. `ack` button per row → `api.ack(id)` with that row's id → `acked`
 mark kept in state, so it survives re-renders and new rows above it; failure shown, row stays unacked.
 
@@ -85,8 +86,8 @@ enough for am/pm.
 
 ## § 7 Step-1 evidence (A8) and claim (A9)
 `/sol-loop` on the whole build, deploy, then a Playwright recording of the board in use on the live URL,
-with a per-action timestamp log (mm:ss from video start): at least one real incident arriving live (the
-feed adds one about every 7 min, so record ~10 min, or start just before the next expected `openedAt`),
+with a per-action timestamp log (mm:ss from video start): at least one real incident arriving live (while
+the board polls, the feed adds one about every 10 s — KEEP — so ~2 min of recording is enough),
 and one real Ack (its receipt logged with its second). Real acks only here. Pick the evidence `flow` and
 `at` from the log for what we report; the report names the `file:line` behind it. Report checked by a
 script (A8). Release asset upload, `curl -IL` logged out. Giovanni sees report + video → step-1 claim.
