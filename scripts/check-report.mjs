@@ -30,9 +30,13 @@ const keys = Object.keys(ev).sort().join(',');
 check('evidence-keys', keys === 'at,flow,receipt,sha,videoLink', `keys ${keys}`);
 check('flow', ['open-board', 'ack-incident', 'watch-board'].includes(ev.flow), `flow ${ev.flow}`);
 
+// `at` must be the second of the ack the receipt belongs to (±1 s), and the flow must be on screen then.
 const toMs = (mmss) => { const [m, s] = mmss.split(':').map(Number); return (m * 60 + s) * 1000; };
-const near = log.events.filter((e) => e.flow === ev.flow && Math.abs(e.ms - toMs(ev.at)) <= 1999);
-check('at', /^\d{2}:\d{2}$/.test(ev.at) && near.length > 0, `${ev.at}: ${near.map((e) => `${e.at} ${e.what}`).join(' | ') || 'no logged event of that flow within 1 s'}`);
+const click = log.events.find((e) => e.flow === 'ack-incident' && e.what.startsWith('click Ack'));
+const atOk = /^\d{2}:\d{2}$/.test(ev.at) && click && Math.abs(Math.floor(click.ms / 1000) * 1000 - toMs(ev.at)) <= 1000;
+const flowThen = log.events.filter((e) => e.flow === ev.flow && Math.abs(Math.floor(e.ms / 1000) * 1000 - toMs(ev.at)) <= 1000);
+check('at', atOk && flowThen.length > 0,
+  `${ev.at} vs the ack click at ${click?.at ?? 'none logged'}; ${ev.flow} events within 1 s: ${flowThen.map((e) => `${e.at} ${e.what}`).join(' | ') || 'none'}`);
 check('receipt', ev.receipt === log.ack.receipt && Boolean(ev.receipt), `report ${mask(ev.receipt)} vs logged ${mask(log.ack.receipt)} (ack ${log.ack.acked} at ${log.ack.at})`);
 
 const onMain = spawnSync('git', ['merge-base', '--is-ancestor', ev.sha, 'origin/main'], { cwd }).status === 0;
