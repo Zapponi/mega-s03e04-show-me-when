@@ -1,0 +1,3 @@
+#!/bin/sh
+# Proof runner: see scripts/verify.mjs for the modes.
+exec node "$(dirname "$0")/scripts/verify.mjs" "$@"
