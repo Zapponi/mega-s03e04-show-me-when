@@ -24,5 +24,6 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 - Repo Zapponi/mega-s03e04-show-me-when does not exist yet; gh logged in as Zapponi with repo + workflow scopes · source: gh repo view / gh auth status 2026-11-12 · how: ran
 - wrangler 4.149.0 via S03E03 scripts/wr.sh reaches only the personal Cloudflare account (OAuth) · source: sh scripts/wr.sh api whoami 2026-11-12 · how: ran
 - The `playwright` 1.64.1 package carries the test runner: `import { test, expect } from 'playwright/test'` and `npx playwright test` work without `@playwright/test` · source: ./verify --local on branch 4-test-bench-loader 2026-11-12 · how: ran
+- Chromium `setInterval(refresh, 2000)` with the fake answering in 200 ms gives `/incidents` request-start gaps of 1.990–2.012 s (median ~2.003 s) at the fake's arrival clock · source: ./verify --local A4 on branch 5-refresh at 42ad275, 2026-11-12 · how: ran
 
 ## Receipts

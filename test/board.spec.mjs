@@ -18,9 +18,7 @@ test.afterEach(async () => { await Promise.all(fakes.splice(0).map((f) => f.clos
 
 const hook = (page, id) => page.locator(`[data-testid="${id}"]`);
 const rowIds = (page) => hook(page, 'incident-row').evaluateAll((els) => els.map((e) => e.dataset.id));
-// Fetch one more page through the board's own module (same instance the page runs). Stands in for the
-// 2 s refresh until SCHED-4513 (issue #5) adds it; A4 then covers the timer itself.
-const poll = (page) => page.evaluate(() => import('./app.js').then((m) => m.refresh()));
+const incidentCalls = (f) => f.requests.filter((r) => r.path === '/api/incidents');
 
 test('A2 open-board: loader until the first answer, then rows newest first; empty only when the board holds none', async ({ page }) => {
   await test.step('loader shows before a 1 s answer and is gone after it', async () => {
@@ -50,16 +48,46 @@ test('A2 open-board: loader until the first answer, then rows newest first; empt
     await page.goto(f.url);
     await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
     f.set({ delayMs: 1000 });
-    const next = poll(page);
-    await expect.poll(() => f.requests.filter((r) => r.path === '/api/incidents').length).toBe(2);
+    // The board's own 2 s refresh makes the second request (no help from the test).
+    await expect.poll(() => incidentCalls(f).length, { timeout: 5000 }).toBe(2);
     await expect(hook(page, 'loader')).toHaveCount(0); // not back while the poll is in flight
-    await next;
-    const second = f.requests.filter((r) => r.path === '/api/incidents')[1];
-    expect(second.query.since).toBe('1'); // api.js sent the first cursor, so the fake answered a delta: []
+    expect(incidentCalls(f)[1].query.since).toBe('1'); // api.js sent the first cursor, so the fake answered a delta: []
+    // A third request starts only after the second answer was applied (no overlap) and carries its cursor.
+    await expect.poll(() => incidentCalls(f).length, { timeout: 5000 }).toBe(3);
+    expect(incidentCalls(f)[2].query.since).toBe('2');
     expect(await rowIds(page)).toEqual(NEWEST_FIRST);
     await expect(hook(page, 'empty')).toHaveCount(0);
     await expect(hook(page, 'loader')).toHaveCount(0);
   });
+});
+
+test('A4 refresh: request starts every 2 s (median 1.9–2.1 s, each 1.5–3.0 s) over ~12 s, no reload', async ({ page }) => {
+  test.setTimeout(30_000);
+  const f = await fake({ incidents: TONIGHT, delayMs: 200 });
+  let navigations = 0;
+  page.on('framenavigated', (frame) => { if (frame === page.mainFrame()) navigations += 1; });
+  await page.goto(f.url);
+  await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
+  await page.evaluate(() => { window.__a4marker = 'still here'; });
+
+  await page.waitForTimeout(12_000);
+
+  const starts = incidentCalls(f).map((r) => r.start);
+  const gaps = starts.slice(1).map((t, i) => (t - starts[i]) / 1000);
+  const sorted = [...gaps].sort((a, b) => a - b);
+  const median = sorted.length % 2 ? sorted[(sorted.length - 1) / 2] : (sorted[sorted.length / 2 - 1] + sorted[sorted.length / 2]) / 2;
+  console.log(`A4 gaps (s): ${gaps.map((g) => g.toFixed(3)).join(' ')} · median ${median.toFixed(3)} · n=${gaps.length}`);
+
+  expect(gaps.length).toBeGreaterThanOrEqual(5); // ~12 s at 2 s
+  expect(median).toBeGreaterThanOrEqual(1.9);
+  expect(median).toBeLessThanOrEqual(2.1);
+  for (const g of gaps) {
+    expect(g).toBeGreaterThanOrEqual(1.5);
+    expect(g).toBeLessThanOrEqual(3.0);
+  }
+  expect(navigations).toBe(1); // only the first load
+  expect(await page.evaluate(() => window.__a4marker)).toBe('still here'); // same document, no reload
+  await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
 });
 
 test('A7 hooks: the pinned data-testid hooks that exist so far', async ({ page }) => {
