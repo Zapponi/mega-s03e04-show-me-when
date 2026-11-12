@@ -225,6 +225,22 @@ test('A6 local times: each viewer sees openedAt in their own locale and zone, fu
       }
     });
   }
+  await test.step('an unparseable openedAt shows as sent and does not blank the other rows', async () => {
+    const g = await fake({ incidents: [
+      { id: 'INC-OK', service: 'sessions', region: 'eu', summary: 'valid', severity: 'sev3', openedAt: OPENED },
+      { id: 'INC-BAD', service: 'sessions', region: 'eu', summary: 'invalid', severity: 'sev3', openedAt: 'not-a-date' },
+    ] });
+    const context = await browser.newContext({ locale: 'de-DE', timezoneId: 'Europe/Berlin' });
+    try {
+      const page = await context.newPage();
+      await page.goto(g.url);
+      await expect(hook(page, 'incident-row')).toHaveCount(2);
+      await expect(page.locator('[data-testid="incident-row"][data-id="INC-OK"] time')).toHaveText('12.11., 04:03');
+      await expect(page.locator('[data-testid="incident-row"][data-id="INC-BAD"] time')).toHaveText('not-a-date');
+    } finally {
+      await context.close();
+    }
+  });
 });
 
 test('A7 hooks: all 8 pinned data-testid hooks exist with their meaning', async ({ page }) => {

@@ -20,7 +20,11 @@ const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 // locale decides day/month order and its 12/24 h clock; no hand-built locale list. The <time datetime>
 // attribute keeps the raw UTC openedAt.
 const timeFormat = new Intl.DateTimeFormat(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-const localTime = (iso) => timeFormat.format(new Date(iso));
+// An unparseable openedAt shows as sent instead of throwing, so one bad incident cannot blank the board.
+const localTime = (iso) => {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? String(iso ?? '') : timeFormat.format(d);
+};
 
 function ackCell(id) {
   if (acked.has(id)) return '<span data-testid="acked" class="acked">Acked</span>';
