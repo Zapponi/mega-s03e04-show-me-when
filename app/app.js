@@ -39,11 +39,24 @@ function apply(page) {
   render();
 }
 
-/** Fetches one page and merges it into the board. The 2 s refresh (SCHED-4513) calls this. */
+// SCHED-4513: refresh every 2 s while the page is open, at a fixed rate (ticks do not drift with the
+// answer time). A tick that finds a request still in flight is skipped, so requests never overlap.
+// A failed request shows the error and the next tick tries again; nothing reloads the page.
+export const REFRESH_MS = 2000;
+let inFlight = null;
+
+/** Fetches one page and merges it into the board; while one is in flight, returns that one instead. */
 export function refresh() {
-  return fetchIncidents().then(apply, (e) => {
-    status.textContent = `Could not load incidents: ${e.message}`;
-  });
+  if (inFlight) return inFlight;
+  inFlight = fetchIncidents()
+    .then(apply, (e) => {
+      status.textContent = `Could not load incidents: ${e.message}`;
+    })
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
 }
 
 refresh();
+setInterval(refresh, REFRESH_MS);
