@@ -30,9 +30,11 @@ async function live() {
   try {
     const ctx = await browser.newContext(); // fresh profile: logged out
     const page = await ctx.newPage();
+    // The board polls every 2 s and the real feed grows, so compare the DOM with the LATEST page it consumed.
     let consumed = null;
+    const isIncidents = (r) => new URL(r.url()).pathname.endsWith('/incidents') && r.ok();
     page.on('response', async (r) => {
-      if (!consumed && new URL(r.url()).pathname.endsWith('/incidents') && r.ok()) consumed = await r.json().catch(() => null);
+      if (isIncidents(r)) consumed = (await r.json().catch(() => null)) ?? consumed;
     });
     const res = await page.goto(BOARD_URL, { waitUntil: 'load' });
     const status = res?.status();
@@ -53,17 +55,20 @@ async function live() {
       check('A1', false, `status ${status}, meta "${meta}" is not a 40-hex sha, footer "${footer}"`);
     }
 
-    // A7 (slice 1 subset): hooks the starter + R6 already have. loader/empty/ack/acked arrive with their issues.
+    // A7 live: hooks visible on a loaded board (slice 1: the starter's; later: + ack). loader/empty/acked: local spec.
     await page.waitForSelector('[data-testid="incident-row"]', { timeout: 10_000 }).catch(() => {});
-    const hooks = ['board', 'incident-list', 'incident-row', 'build-sha'];
+    const hooks = ['board', 'incident-list', 'incident-row', 'build-sha', ...(slice === '1' ? [] : ['ack'])];
     const missing = [];
     for (const h of hooks) if (!(await page.$(`[data-testid="${h}"]`))) missing.push(h);
+    // Read the rows just after a poll was answered and rendered, so DOM and `consumed` are the same page.
+    await page.waitForResponse(isIncidents, { timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(300);
     const rowIds = await page.$$eval('[data-testid="incident-row"]', (els) => els.map((e) => e.dataset.id));
     check('A7', missing.length === 0 && rowIds.every(Boolean),
       missing.length ? `missing ${missing.join(', ')}` : `${hooks.join(', ')} present; every row has data-id`);
 
-    // Live rows: the board shows what the page itself consumed, in order.
-    const want = consumed?.incidents?.map((i) => i.id) ?? null;
+    // Live rows (A2 live): the board shows the latest page it consumed, newest first by openedAt.
+    const want = consumed?.incidents ? [...consumed.incidents].sort((a, b) => b.openedAt.localeCompare(a.openedAt)).map((i) => i.id) : null;
     check('live-rows', want !== null && want.length > 0 && JSON.stringify(rowIds) === JSON.stringify(want),
       want ? `${rowIds.length} rows; consumed ${want.length} incidents; same order: ${JSON.stringify(rowIds) === JSON.stringify(want)}` : 'no /incidents response seen');
   } finally {
