@@ -13,7 +13,7 @@ On-call can keep the board open: every 2 s it asks the incident API again (throu
 | request starts every 2 s over ~12 s, fake answering in 200 ms: median 1.9–2.1 s, each gap 1.5–3.0 s | `./verify --local` → A4 | match: gaps `2.007 1.994 2.012 1.990 2.001 2.006`, median 2.003 s, n=6 (2026-11-12) |
 | no full reload | A4: one main-frame navigation; a `window` marker set after load survives 12 s | match |
 | the refresh is the board's own (no help from the test); a delta poll keeps rows, loader not back | A2 step 3, now driven by the timer: 2nd request carries `since=1`, 3rd `since=2` (proves the 2nd was applied before the 3rd started) | match |
-| A4 catches a wrong cadence | mutation `REFRESH_MS = 1000` → A4 fails (median 1.000 < 1.9); `REFRESH_MS = 3500` → A4 fails (3 gaps of 3.50 s, fewer than 5 in 12 s; each gap > 3.0 too) | match (both failed as expected, file restored) |
+| A4 catches a wrong cadence | mutation `REFRESH_MS = 1000` → A4 fails (median 1.000, below 1.9); `REFRESH_MS = 3500` → A4 fails (3 gaps of 3.50 s, fewer than 5 in 12 s; each gap also above 3.0) | match (both failed as expected, file restored) |
 
 ## Easy to miss
 
