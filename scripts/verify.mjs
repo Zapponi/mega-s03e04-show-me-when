@@ -1,6 +1,7 @@
 // Proof runner for BRIEF.md "Proof". Modes:
 //   node scripts/verify.mjs --slice 1   A1 (sha public on any origin branch) + A7 (hooks so far) + live rows, on BOARD_URL
 //   node scripts/verify.mjs             must: A1 (sha on origin/main) + live checks, then the local spec (test/board.spec.mjs)
+//   node scripts/verify.mjs --local     the local spec only (fake API, no BOARD_URL, no network): use it on a work branch
 // BOARD_URL comes from the env or verify.config.json. Live checks only read: no ack is ever sent here.
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -9,6 +10,7 @@ import { chromium } from 'playwright';
 
 const args = process.argv.slice(2);
 const slice = args.includes('--slice') ? args[args.indexOf('--slice') + 1] : null;
+const local = args.includes('--local');
 const cfg = existsSync(new URL('../verify.config.json', import.meta.url))
   ? JSON.parse(readFileSync(new URL('../verify.config.json', import.meta.url), 'utf8'))
   : {};
@@ -69,7 +71,7 @@ async function live() {
   }
 }
 
-await live();
+if (!local) await live();
 if (slice !== '1' && existsSync(new URL('../test/board.spec.mjs', import.meta.url))) {
   const r = spawnSync('npx', ['playwright', 'test', 'test/board.spec.mjs'], { stdio: 'inherit', shell: true });
   check('local-spec', r.status === 0, `playwright exit ${r.status}`);

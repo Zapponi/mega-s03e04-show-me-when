@@ -31,5 +31,7 @@ flow-ok: proof-late — the kit gate read T3 checkpoint commit 8719dfe as a buil
 flow-ok: plan-late — same false positive; plan reviewed by two families before any build (docs/reviews/2026-11-12-plan.md)
 flow-ok: bundle — the three megadev "ok"s were three separate answers (host, video, repo), one per question, per .challenge/log.md (Giovanni told in chat)
 2026-11-12 — Create the public repo, push the initial commit, publish issues 1 (slice 1) and 2 (product's answer, waits on the course); nothing extra required on every issue — table shown in chat — who: human ("Sim pode criar")
+2026-11-12 — Publish issues #4–#9 (table numbered #3–#8 in chat; plan § 2–§ 7: bench+loader, refresh, live list+ack, times, step-1 evidence, step-1 claim); #2 blocked by #9 — split after slice 1 — who: human ("Sim", answering "posso publicar essas 6 issues (#3 a #8) no repo?")
+2026-11-12 — Step-1 work merges into the integration branch `step-1` through one PR per issue (review mark + verifier each, the kit gate requires them); one /sol-loop on the whole step-1 before main — kit gate + AGENTS.md — who: agent (kit_gate)
 flow-ok: issues-late — same false positive (T3 checkpoint 8719dfe); issue table approved before any build ("Sim pode criar")
 flow-ok: heredoc — four heredocs wrote docs/decisions.md and scripts; file-write tool from now on (Giovanni told in chat)
