@@ -13,6 +13,11 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 
 ## Findings
 
+- On the live board, a pointer resting on a row's Ack while a new incident lands acks the incident that slid under it: aimed at INC-4572, INC-1750 landed at 00:20, the click acked INC-6578 (one real ack, receipt a1.A…H1Zg) · source: recordings/real-2026-11-12T21-17-39-789Z/log.json, `node scripts/record.mjs --real` 2026-11-12 21:17 UTC · how: ran
+- A GitHub release asset URL answers 302 then 200 `application/octet-stream` with the exact bytes (2,580,908 for board-step1.webm), logged out · source: curl -sIL + cmp, 2026-11-12 · how: ran
+- Playwright `recordVideo` shows no mouse cursor; a recorder-injected dot following `mousemove` makes the pointer visible · source: frames of recordings/fake-2026-11-12T21-16-38-487Z/board.webm · how: ran
+- The kit gate (`kit_gate`) refuses `gh pr merge` without a review mark even for PRs into an integration branch, refuses edits on a branch without `branch.<b>.issue`, and the verify gate wants a verifier pass after the last change before a merge · source: hook errors on PR #3 and branch step-1, 2026-11-12 · how: ran
+
 - Course API GET /incidents answers 200 in 0.22 s with 8 incidents, newest first, CORS `access-control-allow-origin: *`, `cache-control: private, no-store` · source: curl from this PC 2026-11-12 19:06 UTC · how: ran
 - A cold `GET /incidents` (no `since`) returns the same 8 seeded incidents with `openedAt` ~7 min apart counted back from the request time (18:59 at 19:06, 19:54+ at 20:08), so their spacing says nothing about arrivals; INC-1223 keeps a fixed 2026-11-11T03:11:00Z · source: GET /incidents 19:06 vs 20:08 UTC, 2026-11-12 · how: ran
 - Polling with `since=<cursor>` every 2 s adds one new incident about every 10 s (5 in 60 s: INC-5554 at +10.6 s … INC-2814 at +49.7 s), always at position 0; every page is the full growing list (8→13), not a delta; the cursor changes on every call · source: scratchpad poll.mjs, 60 s run 2026-11-12 ~20:09 UTC · how: ran
