@@ -13,6 +13,8 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 
 ## Findings
 
+- The course replay (replay-f08ed2e7.mjs, mvp-2) check `j` requires zero `incident-row` nodes removed from the page during a 16 s watch (MutationObserver); a board that redraws with `list.innerHTML` every 2 s scores 40 and fails the prove run; nonce letters name the checks (adghij here) · source: replay.mjs:76-82,107,195 and run 43315930460 log · how: read
+
 - The step-1 claim needs the evidence block to name the intended and the acked incident as `expected` and `got` (incident ids); without them it is rejected with "Which row did you mean, and which got the ack?" · source: claim-challenge reply 2026-11-12 ~21:35 UTC · how: ran
 - Step-1 claim accepted (status progress) with expected/got added; product answers from 2026-11-12T21:41:59Z through resume-challenge with receipts { productReceipt } · source: claim-challenge reply 2026-11-12 ~21:38 UTC · how: ran
 
