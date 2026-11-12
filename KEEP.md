@@ -23,5 +23,6 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 - prove.yml in the repo has sha256 bc0bbd32…27f7, equal to the starter zip's copy · source: sha256sum both files 2026-11-12 · how: ran
 - Repo Zapponi/mega-s03e04-show-me-when does not exist yet; gh logged in as Zapponi with repo + workflow scopes · source: gh repo view / gh auth status 2026-11-12 · how: ran
 - wrangler 4.149.0 via S03E03 scripts/wr.sh reaches only the personal Cloudflare account (OAuth) · source: sh scripts/wr.sh api whoami 2026-11-12 · how: ran
+- The `playwright` 1.64.1 package carries the test runner: `import { test, expect } from 'playwright/test'` and `npx playwright test` work without `@playwright/test` · source: ./verify --local on branch 4-test-bench-loader 2026-11-12 · how: ran
 
 ## Receipts
