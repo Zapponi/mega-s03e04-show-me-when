@@ -61,6 +61,105 @@ test('A2 open-board: loader until the first answer, then rows newest first; empt
   });
 });
 
+const LATE = { id: 'INC-0999', service: 'queue', region: 'eu-west', summary: 'backlog growing', severity: 'sev1', openedAt: at(50) };
+const LATER = { id: 'INC-0500', service: 'mail', region: 'us-east', summary: 'bounces', severity: 'sev2', openedAt: at(55) };
+
+test('A3 live list: an incident added between two polls shows as the first row without a reload, rows stay, no id twice', async ({ page }) => {
+  // 'full' answers every poll with the whole growing list (the real API, KEEP); 'delta' only what is new
+  // after `since`, so a board that swaps pages instead of merging them loses its rows there.
+  for (const mode of ['full', 'delta']) {
+    await test.step(`${mode} pages`, async () => {
+      const f = await fake({ incidents: TONIGHT, mode });
+      let navigations = 0;
+      const onNav = (frame) => { if (frame === page.mainFrame()) navigations += 1; };
+      page.on('framenavigated', onNav);
+      await page.goto(f.url);
+      await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
+      await page.evaluate(() => { window.__a3marker = 'still here'; });
+
+      f.add(LATE);
+      const before = incidentCalls(f).length;
+      // One poll at 2 s plus slack: the new row is first within one refresh.
+      await expect.poll(() => rowIds(page), { timeout: 3000 }).toEqual([LATE.id, ...NEWEST_FIRST]);
+      expect(incidentCalls(f).length).toBeGreaterThan(before);
+      if (mode === 'delta') expect(incidentCalls(f).at(-1).query.since).toBeDefined(); // it was a delta poll
+
+      // One more poll: still every id once, nothing lost.
+      const n = incidentCalls(f).length;
+      await expect.poll(() => incidentCalls(f).length, { timeout: 3000 }).toBeGreaterThan(n);
+      const ids = await rowIds(page);
+      expect(ids).toEqual([LATE.id, ...NEWEST_FIRST]);
+      expect(new Set(ids).size).toBe(ids.length);
+      expect(navigations).toBe(1);
+      expect(await page.evaluate(() => window.__a3marker)).toBe('still here');
+      page.off('framenavigated', onNav);
+    });
+  }
+});
+
+test('A5 ack: one /ack for the clicked row with the latest cursor; acked on that row only, kept across refreshes; a 500 leaves it not acked', async ({ page }) => {
+  test.setTimeout(30_000);
+  const f = await fake({ incidents: TONIGHT });
+  const logs = [];
+  page.on('console', (m) => logs.push(m.text()));
+  const row = (id) => page.locator(`[data-testid="incident-row"][data-id="${id}"]`);
+  const X = 'INC-3002'; // the middle row, so "the first row" or "the last row" would be wrong
+  const Y = 'INC-2001';
+
+  await page.goto(f.url);
+  await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
+
+  await test.step('click Ack in row X: exactly one /ack with id=X and the cursor api.js holds', async () => {
+    // Click just after a poll was applied, so the next one is ~2 s away and api.js holds the latest cursor.
+    await page.waitForResponse((r) => new URL(r.url()).pathname === '/api/incidents');
+    await page.waitForTimeout(100);
+    await row(X).locator('[data-testid="ack"]').click();
+    await expect(row(X).locator('[data-testid="acked"]')).toBeVisible();
+    expect(f.acks).toHaveLength(1);
+    const [sent] = f.acks;
+    expect(sent.id).toBe(X);
+    expect(sent.cursor).toBe(f.cursors.filter((c) => c.at <= sent.start).at(-1).cursor);
+    expect(logs.some((l) => l.startsWith(`ack ${X} `) && l.endsWith(' fake-receipt-1'))).toBe(true); // api.js logged the receipt
+  });
+
+  await test.step('acked on row X only, its ack button gone', async () => {
+    await expect(hook(page, 'acked')).toHaveCount(1);
+    await expect(row(X).locator('[data-testid="ack"]')).toHaveCount(0);
+    for (const id of NEWEST_FIRST.filter((i) => i !== X)) await expect(row(id).locator('[data-testid="ack"]')).toHaveCount(1);
+  });
+
+  await test.step('the mark survives 3 more refreshes, also after a new row lands above it', async () => {
+    const n = incidentCalls(f).length;
+    f.add(LATE);
+    await expect.poll(() => incidentCalls(f).length, { timeout: 8000 }).toBeGreaterThanOrEqual(n + 3);
+    await page.waitForTimeout(100); // let the third answer render
+    expect((await rowIds(page))[0]).toBe(LATE.id);
+    await expect(row(X).locator('[data-testid="acked"]')).toBeVisible();
+    await expect(hook(page, 'acked')).toHaveCount(1);
+    expect(f.acks.map((a) => a.id)).toEqual([X]); // still one ack, still the clicked row's id
+  });
+
+  await test.step('a forced 500 on /ack leaves row Y not acked and says so; the error stays across a refresh; a retry acks it', async () => {
+    f.set({ failAck: true });
+    await row(Y).locator('[data-testid="ack"]').click();
+    await expect(row(Y).locator('.ack-error')).toContainText('Ack failed');
+    expect(f.acks.at(-1).id).toBe(Y);
+    await expect(row(Y).locator('[data-testid="acked"]')).toHaveCount(0);
+    await expect(row(Y).locator('[data-testid="ack"]')).toBeVisible();
+    const n = incidentCalls(f).length;
+    await expect.poll(() => incidentCalls(f).length, { timeout: 3000 }).toBeGreaterThan(n);
+    await page.waitForTimeout(100);
+    await expect(row(Y).locator('.ack-error')).toBeVisible();
+    await expect(hook(page, 'acked')).toHaveCount(1);
+
+    f.set({ failAck: false });
+    await row(Y).locator('[data-testid="ack"]').click();
+    await expect(row(Y).locator('[data-testid="acked"]')).toBeVisible();
+    await expect(row(Y).locator('.ack-error')).toHaveCount(0);
+    expect(f.acks.map((a) => a.id)).toEqual([X, Y, Y]);
+  });
+});
+
 test('A4 refresh: request starts every 2 s (median 1.9–2.1 s, each 1.5–3.0 s) over ~12 s, no reload', async ({ page }) => {
   test.setTimeout(30_000);
   const f = await fake({ incidents: TONIGHT, delayMs: 200 });
@@ -90,8 +189,7 @@ test('A4 refresh: request starts every 2 s (median 1.9–2.1 s, each 1.5–3.0 s
   await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
 });
 
-test('A7 hooks: the pinned data-testid hooks that exist so far', async ({ page }) => {
-  // ack and acked arrive with SCHED-4511 (issue #6); this test grows with them.
+test('A7 hooks: all 8 pinned data-testid hooks exist with their meaning', async ({ page }) => {
   const f = await fake({ incidents: TONIGHT, delayMs: 500 });
   await page.goto(f.url);
   await expect(hook(page, 'loader')).toBeVisible();
@@ -100,6 +198,14 @@ test('A7 hooks: the pinned data-testid hooks that exist so far', async ({ page }
   await expect(hook(page, 'build-sha')).not.toBeEmpty();
   await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
   for (const id of await rowIds(page)) expect(TONIGHT.map((i) => i.id)).toContain(id);
+  // ack: one Ack button in every row; acked: the mark in the row that was acked.
+  await expect(hook(page, 'ack')).toHaveCount(TONIGHT.length);
+  for (const r of await hook(page, 'incident-row').all()) await expect(r.locator('[data-testid="ack"]')).toHaveCount(1);
+  await expect(hook(page, 'acked')).toHaveCount(0);
+  const first = hook(page, 'incident-row').first();
+  await first.locator('[data-testid="ack"]').click();
+  await expect(first.locator('[data-testid="acked"]')).toBeVisible();
+  await expect(hook(page, 'acked')).toHaveCount(1);
 
   const none = await fake({ incidents: [] });
   await page.goto(none.url);
