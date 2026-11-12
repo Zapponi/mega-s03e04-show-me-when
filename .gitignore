@@ -1,0 +1,19 @@
+.challenge/
+node_modules/
+dist/
+.wrangler/
+test-results/
+recordings/
+
+# agent-kit: local secrets and agent caches
+.env
+.env.*
+*.secret
+**/ticket.txt
+**/receipts.json
+mcp-needs-auth-cache.json
+.claude/settings.local.json
+.claude/name-denylist.txt
+.claude/one-thread
+loop/
+.claude/skills

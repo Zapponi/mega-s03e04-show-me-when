@@ -1,0 +1,15 @@
+#!/bin/sh
+# Kit rule (AGENTS.md "Plans, issues and workers"): nothing is committed on the default branch;
+# it changes only through a PR. Runs in every harness (core.hooksPath = .githooks).
+git rev-parse -q --verify HEAD >/dev/null || exit 0              # first commit of an empty repo
+branch=$(git symbolic-ref --short HEAD 2>/dev/null) || exit 0    # detached HEAD
+default=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^[^/]*/##')
+case "$branch" in
+  "${default:-main}"|master)
+    if [ -n "$default" ] && [ "$branch" != "$default" ]; then exit 0; fi
+    echo "pre-commit: '$branch' is the default branch. Commit on a work branch instead:" >&2
+    echo "  git switch -c <issue-number>-<slug>" >&2
+    echo "then reach '$branch' through a PR (kit AGENTS.md, 'Plans, issues and workers')." >&2
+    exit 1 ;;
+esac
+exit 0

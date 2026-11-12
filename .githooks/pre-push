@@ -1,0 +1,16 @@
+#!/bin/sh
+# Kit rule: the default branch changes only through a PR. Its first push (creating it on the
+# remote) passes; any later push to it is refused. Runs in every harness.
+default=$(git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's#^[^/]*/##')
+zero=0000000000000000000000000000000000000000
+while read -r local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    "refs/heads/${default:-main}"|refs/heads/master)
+      if [ -n "$default" ] && [ "$remote_ref" != "refs/heads/$default" ]; then continue; fi
+      case "$remote_sha" in *[!0]*) ;; *) continue ;; esac   # branch not on the remote yet
+      echo "pre-push: '${remote_ref#refs/heads/}' is the default branch and changes only through a PR." >&2
+      echo "  Push your work branch (git push -u origin HEAD) and open a PR." >&2
+      exit 1 ;;
+  esac
+done
+exit 0
