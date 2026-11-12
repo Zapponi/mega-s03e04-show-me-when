@@ -10,8 +10,8 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 
-const [reportPath, logPath, webmPath] = process.argv.slice(2);
-if (!reportPath || !logPath) throw new Error('usage: node scripts/check-report2.mjs <report.md> <log.json> [board.webm]');
+const [reportPath, logPath, webmPath, nonce] = process.argv.slice(2);
+if (!reportPath || !logPath || !webmPath || !nonce) throw new Error('usage: node scripts/check-report2.mjs <report.md> <log.json> <board.webm> <replayNonce>');
 const REPO = 'Zapponi/mega-s03e04-show-me-when';
 const PROVE_SHA256 = 'bc0bbd32e1227260d51e4746a9213f311f5353d2a5c486b061d39cf7dfd427f7';
 const cwd = fileURLToPath(new URL('..', import.meta.url));
@@ -40,9 +40,9 @@ check('recording-ack', log.ack?.acked && log.ack.acked === log.ack.intended, `ai
 
 const res = await fetch(ev.videoLink, { redirect: 'follow' });
 const bytes = Buffer.from(await res.arrayBuffer());
-let same = 'not compared';
-if (webmPath) same = Buffer.compare(bytes, readFileSync(webmPath)) === 0 ? 'same bytes as the local file' : 'DIFFERENT bytes';
-check('videoLink', res.status === 200 && bytes.length > 100_000 && same !== 'DIFFERENT bytes', `${res.status}, ${bytes.length} bytes, ${same}`);
+const same = Buffer.compare(bytes, readFileSync(webmPath)) === 0;
+const webmMagic = bytes.subarray(0, 4).toString('hex') === '1a45dfa3'; // EBML header of a webm file
+check('videoLink', res.status === 200 && same && webmMagic, `${res.status}, ${bytes.length} bytes, ${same ? 'same bytes as the recording' : 'DIFFERENT bytes'}, webm header ${webmMagic}`);
 
 const m = /^https:\/\/github\.com\/([^/]+\/[^/]+)\/actions\/runs\/(\d+)$/.exec(ev.runUrl ?? '');
 if (!m || m[1] !== REPO) {
@@ -51,8 +51,9 @@ if (!m || m[1] !== REPO) {
   const run = JSON.parse(gh('api', `repos/${REPO}/actions/runs/${m[2]}`));
   const prove = Buffer.from(JSON.parse(gh('api', `repos/${REPO}/contents/.github/workflows/prove.yml?ref=${run.head_sha}`)).content, 'base64');
   const proveOk = createHash('sha256').update(prove).digest('hex') === PROVE_SHA256;
+  // prove.yml sets `run-name: prove ${{ inputs.nonce }} ${{ inputs.url }}`: both must be exactly ours.
   const title = run.display_title ?? '';
-  const urlOk = title.includes(log.url);
+  const urlOk = title === `prove ${nonce} ${log.url}`;
   check('runUrl', run.path === '.github/workflows/prove.yml' && run.conclusion === 'success' && proveOk && urlOk,
     `run ${m[2]}: ${run.status}/${run.conclusion}, workflow ${run.path}, prove.yml at ${run.head_sha.slice(0, 7)} ${proveOk ? 'unchanged' : 'CHANGED'}, title "${title}"`);
 }
