@@ -2,16 +2,18 @@
 // Refuses a dirty tree or a commit the public repo does not have, so the sha shown is always public.
 import { cpSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
-const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
 const root = new URL('..', import.meta.url);
 const dist = new URL('dist/', root);
+// git always runs in the repo root, whatever the caller's working directory.
+const git = (...args) => execFileSync('git', args, { encoding: 'utf8', cwd: fileURLToPath(root) }).trim();
 
 if (git('status', '--porcelain', '--', 'app')) throw new Error('build: app/ has uncommitted changes; commit first');
 const sha = git('rev-parse', 'HEAD');
 git('fetch', '--quiet', 'origin');
-const onRemote = git('branch', '-r', '--contains', sha);
-if (!onRemote) throw new Error(`build: ${sha} is not on origin yet; push it first`);
+const onOrigin = git('branch', '-r', '--contains', sha, '--list', 'origin/*');
+if (!onOrigin) throw new Error(`build: ${sha} is not on origin (the public repo) yet; push it first`);
 
 rmSync(dist, { recursive: true, force: true });
 cpSync(new URL('app/', root), dist, { recursive: true });

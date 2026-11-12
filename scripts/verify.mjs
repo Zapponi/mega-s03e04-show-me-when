@@ -4,6 +4,7 @@
 // BOARD_URL comes from the env or verify.config.json. Live checks only read: no ack is ever sent here.
 import { readFileSync, existsSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 
 const args = process.argv.slice(2);
@@ -12,7 +13,6 @@ const cfg = existsSync(new URL('../verify.config.json', import.meta.url))
   ? JSON.parse(readFileSync(new URL('../verify.config.json', import.meta.url), 'utf8'))
   : {};
 const BOARD_URL = process.env.BOARD_URL || cfg.boardUrl;
-const git = (...a) => execFileSync('git', a, { encoding: 'utf8' }).trim();
 
 const results = [];
 const check = (id, ok, detail) => {
@@ -39,9 +39,10 @@ async function live() {
 
     let where = '';
     if (meta && /^[0-9a-f]{40}$/.test(meta)) {
-      execFileSync('git', ['fetch', '--quiet', 'origin']);
-      const onMain = spawnSync('git', ['merge-base', '--is-ancestor', meta, 'origin/main']).status === 0;
-      const branches = spawnSync('git', ['branch', '-r', '--contains', meta], { encoding: 'utf8' }).stdout.trim();
+      const cwd = fileURLToPath(new URL('..', import.meta.url));
+      execFileSync('git', ['fetch', '--quiet', 'origin'], { cwd });
+      const onMain = spawnSync('git', ['merge-base', '--is-ancestor', meta, 'origin/main'], { cwd }).status === 0;
+      const branches = spawnSync('git', ['branch', '-r', '--contains', meta, '--list', 'origin/*'], { encoding: 'utf8', cwd }).stdout.trim();
       where = onMain ? 'on origin/main' : branches ? `on ${branches.replace(/\s+/g, ' ')}` : 'not on origin';
       const publicEnough = slice === '1' ? Boolean(branches) : onMain;
       check('A1', status === 200 && meta === footer && publicEnough,
