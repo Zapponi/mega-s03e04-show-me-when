@@ -93,9 +93,44 @@ async function ackIncident(id) {
   render();
 }
 
+// Step 2, product's decision (plan § 10): Ack asks to confirm, and the confirm names the incident id.
+// The id is taken from the clicked row at click time and kept by the confirm, so `confirm-ack` acks the
+// incident it names even if new rows push the list down while it is open. The confirm lives outside the
+// list, so the 2 s redraw never removes it; `confirm-cancel` (or Escape) closes it and sends nothing.
+let confirmBox = null;
+
+function closeConfirm() {
+  confirmBox?.remove();
+  confirmBox = null;
+}
+
+function openConfirm(id) {
+  closeConfirm(); // one confirm at a time: a new Ack click replaces it
+  confirmBox = document.createElement('div');
+  confirmBox.className = 'confirm';
+  confirmBox.setAttribute('data-testid', 'confirm');
+  confirmBox.setAttribute('role', 'alertdialog');
+  confirmBox.setAttribute('aria-label', `Ack ${id}?`);
+  confirmBox.dataset.id = id;
+  confirmBox.innerHTML = `<p>Ack <strong class="confirm-id">${esc(id)}</strong>?</p>
+    <button type="button" data-testid="confirm-ack" class="confirm-ack">Ack ${esc(id)}</button>
+    <button type="button" data-testid="confirm-cancel" class="confirm-cancel">Cancel</button>`;
+  confirmBox.querySelector('[data-testid="confirm-ack"]').addEventListener('click', () => {
+    closeConfirm();
+    ackIncident(id);
+  });
+  confirmBox.querySelector('[data-testid="confirm-cancel"]').addEventListener('click', closeConfirm);
+  board.after(confirmBox);
+  confirmBox.querySelector('[data-testid="confirm-ack"]').focus();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && confirmBox) closeConfirm();
+});
+
 list.addEventListener('click', (e) => {
   const button = e.target.closest('[data-testid="ack"]');
-  if (button) ackIncident(button.closest('[data-testid="incident-row"]').dataset.id);
+  if (button) openConfirm(button.closest('[data-testid="incident-row"]').dataset.id);
 });
 
 refresh();

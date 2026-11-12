@@ -13,6 +13,9 @@ Not checked yet. The keep skill's scripts/keep-check.mjs fills this part. Never 
 
 ## Findings
 
+- The step-1 claim needs the evidence block to name the intended and the acked incident as `expected` and `got` (incident ids); without them it is rejected with "Which row did you mean, and which got the ack?" · source: claim-challenge reply 2026-11-12 ~21:35 UTC · how: ran
+- Step-1 claim accepted (status progress) with expected/got added; product answers from 2026-11-12T21:41:59Z through resume-challenge with receipts { productReceipt } · source: claim-challenge reply 2026-11-12 ~21:38 UTC · how: ran
+
 - On the live board, a pointer resting on a row's Ack while a new incident lands acks the incident that slid under it: aimed at INC-4572, INC-1750 landed at 00:20, the click acked INC-6578 (one real ack, receipt a1.A…H1Zg) · source: recordings/real-2026-11-12T21-17-39-789Z/log.json, `node scripts/record.mjs --real` 2026-11-12 21:17 UTC · how: ran
 - A GitHub release asset URL answers 302 then 200 `application/octet-stream` with the exact bytes (2,580,908 for board-step1.webm), logged out · source: curl -sIL + cmp, 2026-11-12 · how: ran
 - Playwright `recordVideo` shows no mouse cursor; a recorder-injected dot following `mousemove` makes the pointer visible · source: frames of recordings/fake-2026-11-12T21-16-38-487Z/board.webm · how: ran
