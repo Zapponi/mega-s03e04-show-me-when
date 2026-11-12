@@ -10,7 +10,7 @@ The course accepted the step-2 claim on 2026-11-12 at 22:25:42 UTC, so S03E04 "s
 
 | Check | Shown by | Result |
 |---|---|---|
-| Step-2 report: System Diff + evidence {sha, videoLink, runUrl} | `node scripts/check-report2.mjs … <nonce>` | match: 7/7 |
+| Step-2 report: System Diff + evidence {sha, videoLink, runUrl} | `node scripts/check-report2.mjs` with the replayNonce | match: 7/7 |
 | Course replay on the live build | prove run 43317683236 | match: success, unmet [] |
 | Claim accepted | claim-challenge reply | match: status solved |
 
