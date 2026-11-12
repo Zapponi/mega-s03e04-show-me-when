@@ -189,6 +189,60 @@ test('A4 refresh: request starts every 2 s (median 1.9–2.1 s, each 1.5–3.0 s
   await expect(hook(page, 'incident-row')).toHaveCount(TONIGHT.length);
 });
 
+test('A6 local times: each viewer sees openedAt in their own locale and zone, fully visible; datetime keeps raw UTC', async ({ browser }) => {
+  const OPENED = '2026-11-12T03:03:00.000Z';
+  const f = await fake({ incidents: [{ id: 'INC-4514', service: 'sessions', region: 'ap-southeast', summary: 'local times', severity: 'sev3', openedAt: OPENED }] });
+  // Strings measured in Chromium (Playwright 1.64.1) on 2026-11-12 (BRIEF A6, KEEP).
+  const VIEWERS = [
+    { locale: 'en-NZ', timezoneId: 'Pacific/Auckland', text: '12/11, 04:03 pm' },
+    { locale: 'de-DE', timezoneId: 'Europe/Berlin', text: '12.11., 04:03' },
+    { locale: 'en-US', timezoneId: 'America/New_York', text: '11/11, 10:03 PM' },
+  ];
+  for (const v of VIEWERS) {
+    await test.step(`${v.locale} / ${v.timezoneId} → ${v.text}`, async () => {
+      const context = await browser.newContext({ locale: v.locale, timezoneId: v.timezoneId });
+      try {
+        const page = await context.newPage();
+        await page.goto(f.url);
+        const time = hook(page, 'incident-row').locator('time');
+        await expect(time).toHaveCount(1);
+        await expect(time).toHaveText(v.text, { useInnerText: true });
+        expect(await time.textContent()).toBe(v.text); // exact, no whitespace normalization
+        await expect(time).toHaveAttribute('datetime', OPENED);
+        // Fully visible: one line, nothing clipped inside the element, and it ends before the Ack cell starts.
+        const fit = await time.evaluate((el) => {
+          const r = el.getBoundingClientRect();
+          const act = el.parentElement.querySelector('.act').getBoundingClientRect();
+          const line = parseFloat(getComputedStyle(el).lineHeight);
+          return { scroll: el.scrollWidth, client: el.clientWidth, right: r.right, actLeft: act.left, height: r.height, line, inView: r.right <= window.innerWidth };
+        });
+        expect(fit.scroll, JSON.stringify(fit)).toBeLessThanOrEqual(fit.client);
+        expect(fit.right, JSON.stringify(fit)).toBeLessThanOrEqual(fit.actLeft);
+        expect(fit.height, JSON.stringify(fit)).toBeLessThan(fit.line * 1.5);
+        expect(fit.inView).toBe(true);
+      } finally {
+        await context.close();
+      }
+    });
+  }
+  await test.step('an unparseable openedAt shows as sent and does not blank the other rows', async () => {
+    const g = await fake({ incidents: [
+      { id: 'INC-OK', service: 'sessions', region: 'eu', summary: 'valid', severity: 'sev3', openedAt: OPENED },
+      { id: 'INC-BAD', service: 'sessions', region: 'eu', summary: 'invalid', severity: 'sev3', openedAt: 'not-a-date' },
+    ] });
+    const context = await browser.newContext({ locale: 'de-DE', timezoneId: 'Europe/Berlin' });
+    try {
+      const page = await context.newPage();
+      await page.goto(g.url);
+      await expect(hook(page, 'incident-row')).toHaveCount(2);
+      await expect(page.locator('[data-testid="incident-row"][data-id="INC-OK"] time')).toHaveText('12.11., 04:03');
+      await expect(page.locator('[data-testid="incident-row"][data-id="INC-BAD"] time')).toHaveText('not-a-date');
+    } finally {
+      await context.close();
+    }
+  });
+});
+
 test('A7 hooks: all 8 pinned data-testid hooks exist with their meaning', async ({ page }) => {
   const f = await fake({ incidents: TONIGHT, delayMs: 500 });
   await page.goto(f.url);
