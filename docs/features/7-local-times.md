@@ -4,7 +4,7 @@ Issue #7 (SCHED-4514, plan R5, § 6). Proven by BRIEF A6.
 
 ## Outcome
 
-On-call no longer converts raw UTC in their head. A viewer in Auckland sees `12/11, 04:03 pm`, one in Berlin `12.11., 04:03`, one in New York `11/11, 10:03 PM` for the same incident (`2026-11-12T03:03:00.000Z`): their own zone, their own day/month order and their locale's 12/24 h clock. The full UTC value stays in the `<time datetime>` attribute for tools and the replay.
+On-call no longer converts raw UTC in their head. A viewer in Auckland sees `12/11, 04:03 pm`, one in Berlin `12.11., 04:03`, one in New York `11/11, 10:03 PM` for the same incident (`2026-11-12T03:03:00.000Z`): their own zone, their own day/month order and their locale's 12/24 h clock. The full UTC value stays in the time element's `datetime` attribute for tools and the replay.
 
 ## Done means
 
@@ -14,7 +14,7 @@ On-call no longer converts raw UTC in their head. A viewer in Auckland sees `12/
 | de-DE / Europe/Berlin shows exactly `12.11., 04:03` | A6 step 2 | match |
 | en-US / America/New_York shows exactly `11/11, 10:03 PM` | A6 step 3 | match (plain U+0020 spaces, compared byte for byte) |
 | `datetime` = `2026-11-12T03:03:00.000Z` exactly | A6, `toHaveAttribute` | match |
-| Text fully visible: one line, scrollWidth <= clientWidth, ends before the Ack cell, inside the viewport | A6 `fit` checks | match (en-NZ text is 107 px wide in the 200 px column) |
+| Text fully visible: one line, scrollWidth not above clientWidth, ends before the Ack cell, inside the viewport | A6 `fit` checks | match (en-NZ text is 107 px wide in the 200 px column) |
 | A6 fails on raw `openedAt` | mutation, board.spec.mjs:209 | fails: received `2026-11-12T03:03:00.000Z` |
 | A6 fails on a hardcoded `'en-GB'` | mutation, board.spec.mjs:209 | fails: received `12/11, 16:03` |
 | A6 fails when the column clips the text | mutation 60 px column, board.spec.mjs:219 | fails: scrollWidth 107 > 60 |
